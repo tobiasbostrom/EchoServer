@@ -3,4 +3,6 @@ project(EchoServer)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(EchoServer main.cpp)
+add_subdirectory(server)
+add_subdirectory(client)
+
