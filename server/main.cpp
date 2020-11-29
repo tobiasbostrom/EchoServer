@@ -10,7 +10,7 @@
 static int listener_socket;
 static int client_socket;
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 128
 
 void sig_handler(int signo)
 {
@@ -22,6 +22,11 @@ void sig_handler(int signo)
 
 int main(int argc, char **argv)
 {
+    std::string test("hello");
+    test.push_back('\0');
+    const char * fromCString = test.c_str();
+    char * data = test.data();
+    int size = test.size();
     if (argc != 2)
     {
         std::cerr << "Wrong number of arguments." << "\n";
@@ -76,6 +81,7 @@ int main(int argc, char **argv)
                                &client_addr_size);
         if (client_socket == -1) {
             std::cerr << "Accepting connection from client failed with errno: " << std::strerror(errno) << "\n";
+            close(listener_socket);
             return -6;
         }
 
@@ -93,6 +99,8 @@ int main(int argc, char **argv)
             if (received_bytes == -1)
             {
                 std::cerr << "recv failed with errno: " << std::strerror(errno) << "\n";
+                close(client_socket);
+                close(listener_socket);
                 return -7;
             }
             else if (received_bytes == 0)
@@ -104,17 +112,20 @@ int main(int argc, char **argv)
             {
                 for (int i = 0; i < received_bytes; i++)
                 {
-                    if (message_buffer[i] == '\n')
+                    if (message_buffer[i] == '\x00')
                     {
                         std::reverse(message.begin(),
                                      message.end());
-                        ssize_t  result = send(client_socket,
-                                               message.c_str(),
-                                               message.size(),
-                                               0);
-                        if (result == -1)
+                        message.push_back(message_buffer[i]);
+                        ssize_t sent_bytes = send(client_socket,
+                                                  message.c_str(),
+                                                  message.size(),
+                                                  0);
+                        if (sent_bytes == -1)
                         {
-                            std::cerr << "send failed with errno: " << std::strerror(errno) << "\n";
+                            std::cerr << "Send failed with errno: " << std::strerror(errno) << "\n";
+                            close(client_socket);
+                            close(listener_socket);
                             return -7;
                         }
                         message.clear();
